@@ -10,20 +10,23 @@ public class BitcoinWallet : MonoBehaviour
 	
 	[Header("Wallet Balance")]
 	[SerializeField] Button NewWalletButton;
-	[SerializeField] Text BalanceAmountText;//TODO load balance from api
-	[SerializeField] Button BalanceRefreshButton;//TODO Same
+	[SerializeField] Text BalanceAmountText;
+	[SerializeField] Button BalanceRefreshButton;
 	[SerializeField] GameObject BalanceAnimatedLoader; 
 	
 	[Header("Wallet Receive")]
 	[SerializeField] Text AddressText;
 	[SerializeField] RawImage AddressQRRawImage;
-	[SerializeField] Button AddressQRButton;//TODO click copy address
+	[SerializeField] Button AddressQRButton;
 	[SerializeField] Text CopyAddressButtonText;
 	[SerializeField] GameObject QRAnimatedLoader;
 	
-	
 	[Header("Wallet Send")]
 	[SerializeField] Button SendButton;//TODO send money
+	[SerializeField] InputField RecipientAddressInputField;
+	[SerializeField] InputField SendInputField;
+	[SerializeField] InputField FeeInputField;
+	[SerializeField] Text TotalSatText;
 	
 	[Header("Private")]
 	[SerializeField] InputField MnemonicInputField;
@@ -133,12 +136,63 @@ public class BitcoinWallet : MonoBehaviour
 			CopyTextToClipboard(m_address);
 			StartCoroutine(Animatetext("Address copied :D", AddressText));
 		});
+		SendButton.onClick.AddListener(() =>
+		{
+			int sendSat, feeSat;
+			if (int.TryParse(SendInputField.text, out sendSat) && int.TryParse(FeeInputField.text, out feeSat))
+			{
+				StartCoroutine(SubmitTransaction(RecipientAddressInputField.text,sendSat, feeSat));
+			}
+			else
+			{
+				Log("Amount or Fee can't be parsed as integer", true);
+			}
+		});
+		SendInputField.onValueChanged.AddListener((string txt) =>
+		{
+			UpdateTotalToSpend();
+		});
+		FeeInputField.onValueChanged.AddListener((string txt) =>
+		{
+			UpdateTotalToSpend();
+		});
+	}
+
+	void UpdateTotalToSpend()
+	{
+		int sendSat, feeSat;
+		if (int.TryParse(SendInputField.text, out sendSat) && int.TryParse(FeeInputField.text, out feeSat))
+		{
+			TotalSatText.text = (sendSat + feeSat).ToString();
+		}
+		else
+		{
+			Log("Amount ("+SendInputField.text+") or Fee ("+FeeInputField.text+") can't be parsed as integer", true);
+		}
+	}
+
+	IEnumerator SubmitTransaction(string recipientAddress, int amountSat, int feeSat)
+	{
+		Log("Submitting transaction");
+		SendInputField.interactable = false;
+		SendButton.interactable = false;
+		FeeInputField.interactable = false;
+		RecipientAddressInputField.interactable = false;
+
+		//TODO make and submit transaction here
+		yield return new WaitForSeconds(3f);
+		SendInputField.interactable = true;
+		SendButton.interactable = true;
+		FeeInputField.interactable = true;
+		RecipientAddressInputField.interactable = true;
 	}
 
 	void Start()
 	{
+		//mnemonic to remind:
 		//position rough review helmet urban great custom carpet custom honey mango talent
 		GenerateWallet();
+		UpdateTotalToSpend();
 	}
 
 	void RefreshWalletUI()
@@ -168,14 +222,16 @@ public class BitcoinWallet : MonoBehaviour
 	{
 		if (mnemonicStr != "")
 		{
-			//INTERESTING mnemonic can be imported
+			//INTERESTING
+			//1MHKBnCnJtVwNidC9yq2Hr2dP91BAJx9B5mnemonic can be imported
 			Log("Importing wallet from mnemonic "+mnemonicStr.Substring(0,10)+"...");
 			WalletMnemonic = new Mnemonic(mnemonicStr);
 		}
 		else
 		{
 			Log("Generating new wallet");
-			//INTERESTING mnemonic can be randomly generated totally offline
+			//INTERESTING
+			//mnemonic can be randomly generated totally offline
 			WalletMnemonic = new Mnemonic(Wordlist.English, WordCount.Twelve);
 		}
 	}
@@ -188,7 +244,8 @@ public class BitcoinWallet : MonoBehaviour
 		BalanceAmountText.text = "Loading...";
 		yield return new WaitForSeconds(0.3f);
 		
-		//INTERESTING as the blockchain is public anybody can check the balance for any address
+		//INTERESTING
+		//as the blockchain is public anybody can check the balance for any address
 		//In this case we are trusting an external company but this url request could be replaced by your own bitcoin node
 		WWW www = new WWW("https://api.blockcypher.com/v1/btc/main/addrs/"+m_address+"/balance");
 		// Documentation @ https://www.blockcypher.com/dev/bitcoin/#address-balance-endpoint
