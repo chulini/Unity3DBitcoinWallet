@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using NBitcoin;
 using UnityEngine.UI;
@@ -68,7 +69,7 @@ public class BitcoinWallet : MonoBehaviour
 	//}
 	JSONObject m_balanceData;
 
-	int m_confirmedBalance
+	int m_balance
 	{
 		get
 		{
@@ -103,11 +104,11 @@ public class BitcoinWallet : MonoBehaviour
 		}
 	}
 	
-	string m_address
+	BitcoinAddress m_address
 	{
 		get
 		{
-			return WalletMnemonic.DeriveExtKey().GetPublicKey().GetAddress(ScriptPubKeyType.Legacy, Network.Main).ToString();
+			return WalletMnemonic.DeriveExtKey().GetPublicKey().GetAddress(ScriptPubKeyType.Legacy, Network.Main);
 		}
 	}
 	
@@ -133,7 +134,7 @@ public class BitcoinWallet : MonoBehaviour
 		} );
 		AddressQRButton.onClick.AddListener(() =>
 		{
-			CopyTextToClipboard(m_address);
+			CopyTextToClipboard(m_address.ToString());
 			StartCoroutine(Animatetext("Address copied :D", AddressText));
 		});
 		SendButton.onClick.AddListener(() =>
@@ -173,160 +174,79 @@ public class BitcoinWallet : MonoBehaviour
 
 	IEnumerator SendSat(string recipientAddress, int amountSat, int feeSat)
 	{
-		Log("Requesting transaction history for address "+m_address);
+		Log("Requesting transaction outputs for address "+m_address.ToString());
 		SetSendPanelInteractable(false);
 		
-		//Request transaction history
-		WWW www = new WWW("https://api.blockcypher.com/v1/btc/main/addrs/" + m_address + "/full");
-		yield return www;
-		 /* EXAMPLE OF TRANSACTION HISTORY
-{
-	"address":"1A1FeiQYswBmxzf3madyfxf1pa9B5vSV6j",
-	"total_received":7121,
-	"total_sent":0,
-	"balance":7121,
-	"unconfirmed_balance":597,
-	"final_balance":7718,
-	"n_tx":1,
-	"unconfirmed_n_tx":1,
-	"final_n_tx":2,
-	"txs":[
+		//Request all unspent transactions related to this address
+		//https://live.blockcypher.com/btc/address/<address> shows the same but nicely
+		WWW wwwTxo = new WWW("https://api.blockcypher.com/v1/btc/main/addrs/" + m_address.ToString() + "/full?includeScript=true");
+		yield return wwwTxo;
+		
+		if (wwwTxo.error != null)
 		{
-			"block_height":-1,
-			"block_index":-1,
-			"hash":"be2f7ff9ff436cff2e483838c6a80c0403522c7ce57d3daab3bc15790a166c03",
-			"addresses":[
-				"1CfiJMNr1vUYGqxoT1aHZqg7ikDVFqixe4",
-				"1A1FeiQYswBmxzf3madyfxf1pa9B5vSV6j",
-				"1GZeJpRCqsG59toSn4iYbQsvtU8y9jzVhM"
-			],
-			"total":2488487,
-			"fees":4520,
-			"size":225,
-			"preference":"low",
-			"relayed_by":"93.147.136.98:8333",
-			"received":"2019-06-20T19:39:16.578776151Z",
-			"ver":1,
-			"double_spend":false,
-			"vin_sz":1,
-			"vout_sz":2,
-			"confirmations":0,
-			"inputs":[
-				{
-					"prev_hash":"0773aa363fe2f72449c96d9644b77803aa7a95705035cdabdc61aa870a82efb5",
-					"output_index":1,
-					"script":"47304402205ca0f39ddac8ed3eeb0eca0079415aa9e70e99eed95b84dcf2817849c9a5b098022042a9c79034d5caaf3bac676c5e44c0df807c3c9848d9ef281c0f818522529c550121023f62d7d94d2116315cb5bf8cc461c72be706bd4858438f0fc62fe89e884bfe7d",
-					"output_value":2493007,
-					"sequence":4294967295,
-					"addresses":[
-						"1CfiJMNr1vUYGqxoT1aHZqg7ikDVFqixe4"
-					],
-					"script_type":"pay-to-pubkey-hash",
-					"age":580162
-				}
-			],
-			"outputs":[
-				{
-					"value":597,
-					"script":"76a91462c55c88857bc97534213b9117da7c35e1bd4a8588ac",
-					"addresses":[
-						"1A1FeiQYswBmxzf3madyfxf1pa9B5vSV6j"
-					],
-					"script_type":"pay-to-pubkey-hash"
-				},
-				{
-					"value":2487890,
-					"script":"76a914aab6570b3dfc6df45197653671f1134f17cacb4588ac",
-					"addresses":[
-						"1GZeJpRCqsG59toSn4iYbQsvtU8y9jzVhM"
-					],
-					"script_type":"pay-to-pubkey-hash"
-				}
-			]
-		},
-		{
-			"block_hash":"00000000000000000022d20e46e09c74d8876d2dfa18c29e5a44e8a7dd21b422",
-			"block_height":580162,
-			"block_index":2134,
-			"hash":"0773aa363fe2f72449c96d9644b77803aa7a95705035cdabdc61aa870a82efb5",
-			"addresses":[
-				"1A1FeiQYswBmxzf3madyfxf1pa9B5vSV6j",
-				"1CfiJMNr1vUYGqxoT1aHZqg7ikDVFqixe4",
-				"1EBftLKFvWL2E41CzGNRz92CnF7Hm2ghgQ"
-			],
-			"total":2500128,
-			"fees":5424,
-			"size":225,
-			"preference":"low",
-			"relayed_by":"13.58.198.168:8333",
-			"confirmed":"2019-06-10T21:28:11Z",
-			"received":"2019-06-10T20:55:39.385Z",
-			"ver":1,
-			"double_spend":false,
-			"vin_sz":1,
-			"vout_sz":2,
-			"confirmations":1465,
-			"confidence":1,
-			"inputs":[
-				{
-					"prev_hash":"2a7d2d5806fdbfafea8ec4184e935f79ad7cd93f598c3f9091a3bb902e30322b",
-					"output_index":1,
-					"script":"4730440220591d0fdcdec88d87f4d263b3f6572a6735a908b413135c64e9aa5632bc1695db02200ea8145c8a2e0472e0c01a1e17589509e5c71949cd8e16aae0916bff7268acb9012103f0b076ed8bf8b84237690ca9576a21e8105d3857033fc599b751018deab310ed",
-					"output_value":2505552,
-					"sequence":4294967295,
-					"addresses":[
-						"1EBftLKFvWL2E41CzGNRz92CnF7Hm2ghgQ"
-					],
-					"script_type":"pay-to-pubkey-hash",
-					"age":454392
-				}
-			],
-			"outputs":[
-				{
-					"value":7121,
-					"script":"76a91462c55c88857bc97534213b9117da7c35e1bd4a8588ac",
-					"addresses":[
-						"1A1FeiQYswBmxzf3madyfxf1pa9B5vSV6j"
-					],
-					"script_type":"pay-to-pubkey-hash"
-				},
-				{
-					"value":2493007,
-					"script":"76a9147ffbaa3ba7ce94f0e4d129f5d47958812e2b25b388ac",
-					"addresses":[
-						"1CfiJMNr1vUYGqxoT1aHZqg7ikDVFqixe4"
-					],
-					"script_type":"pay-to-pubkey-hash"
-				}
-			]
-		}
-	]
-}*/
-		if (www.error != null)
-		{
-			Log("Cannot get address transaction history from \""+www.url+"\"\nError: "+www.error);
+			Log("Cannot get utxo from \""+wwwTxo.url+"\"\nError: "+wwwTxo.error);
 			SetSendPanelInteractable(true);
 		}
 		else
-		{
-			JSONObject transactionHistory = new JSONObject(www.text);
-			//Get all unspent outputs
-			JSONObject utxos = new JSONObject(JSONObject.Type.ARRAY);
-			for (int i = 0; i < transactionHistory["txs"].Count; i++)
+		{	
+			JSONObject txRelatedToAddress = new JSONObject(wwwTxo.text);
+			//INPUT: money coming from an address
+			//OUTPUT: money going to an address
+			//Get all unspent outputs using my address
+			List<Coin> unspentCoins = new List<Coin>();
+			for (int i = 0; i < txRelatedToAddress["txs"].Count; i++)
 			{
-				for (int j = 0; j < transactionHistory["txs"][i]["outputs"].Count; j++)
+				string txHash = txRelatedToAddress["txs"][i]["hash"].str;
+				for (int j = 0; j < txRelatedToAddress["txs"][i]["outputs"].Count; j++)
 				{
-					if (transactionHistory["txs"][i]["outputs"][j]["addresses"][0].ToString() == m_address)
+					JSONObject txo = txRelatedToAddress["txs"][i]["outputs"][j];
+					if (txo["addresses"][0].str == m_address.ToString() && txo["spent_by"] == null)
 					{
-						utxos.Add(transactionHistory["txs"][i]["outputs"][j]);	
+						Log(((int) txo["value"].n) + " unspent!");
+						unspentCoins.Add(new Coin(
+							new uint256(txHash), //Hash of the transaction this output is comming from 
+							(uint) j,//Index of the transaction output
+							Money.Satoshis((int) txo["value"].n), //Amount of money this output has
+							m_address.ScriptPubKey)); //Script to solve to spend this output
 					}
 				}
 			}
-			//TODO build transaction here
+			
+			//+info about how to use TransactionBuilder can be found here
+			//https://csharp.hotexamples.com/examples/NBitcoin/TransactionBuilder/-/php-transactionbuilder-class-examples.html
+			TransactionBuilder txBuilder = Network.Main.CreateTransactionBuilder();
+			txBuilder.AddKeys(WalletMnemonic.DeriveExtKey().PrivateKey);
+			txBuilder.AddCoins(unspentCoins);
+			txBuilder.Send(BitcoinAddress.Create(recipientAddress, Network.Main), Money.Satoshis(amountSat));
+			txBuilder.SendFees(Money.Satoshis(feeSat));
+			txBuilder.SetChange(m_address);
+			Transaction tx = txBuilder.BuildTransaction(true);
+			
+			Log(tx.ToHex().ToString());
 			
 			
+			//Submit raw transaction to a bitcoin node
+			//In this case we use blockchain.info API
+			WWWForm form = new WWWForm();
+			form.AddField("tx",tx.ToHex());
+			WWW wwwRawTx = new WWW("https://blockchain.info/pushtx", form);
+			yield return wwwRawTx;
+
+			if (wwwRawTx.error != null)
+			{
+				Log("Error submitting raw transaction " + wwwRawTx.error, true);
+			}
+			else
+			{
+				Log(wwwTxo.text);
+				Log("Transaction sent!");
+				yield return new WaitForSeconds(3f);
+				Application.OpenURL("https://www.blockchain.com/btc/address/"+m_address);
+				yield return StartCoroutine(RefreshBalance());
+			}
+
 		}
-		yield return new WaitForSeconds(3f);
+		
 		SetSendPanelInteractable(true);
 	}
 
@@ -343,8 +263,9 @@ public class BitcoinWallet : MonoBehaviour
 	void Start()
 	{
 		//mnemonic to remind:
-		//position rough review helmet urban great custom carpet custom honey mango talent
-		GenerateWallet("position rough review helmet urban great custom carpet custom honey mango talent");
+		//position rough review helmet urban great custom carpet custom honey mango talent (have tx history)
+		//vehicle shy appear ranch this gap across loud rebel thing collect spoil
+		GenerateWallet();
 		UpdateTotalToSpend();
 	}
 
@@ -354,11 +275,11 @@ public class BitcoinWallet : MonoBehaviour
 		//Which is used to sign transactions
 		MnemonicInputField.text = WalletMnemonic.ToString();
 		PrivateKeyInputField.text = WalletMnemonic.DeriveExtKey().ToString(Network.Main);
-		AddressText.text = m_address;
+		AddressText.text = m_address.ToString();
 		StopAllCoroutines();
 		
 		//INTERESTING Mobile wallets uses "bitcoin:<address>" as the encoded string in QR images
-		StartCoroutine(LoadQR("bitcoin:"+m_address));
+		StartCoroutine(LoadQR("bitcoin:"+m_address.ToString()));
 	}
 
 	void Log(string newText, bool error = false)
@@ -400,7 +321,7 @@ public class BitcoinWallet : MonoBehaviour
 		//INTERESTING
 		//as the blockchain is public anybody can check the balance for any address
 		//In this case we are trusting an external company but this url request could be replaced by your own bitcoin node
-		WWW www = new WWW("https://api.blockcypher.com/v1/btc/main/addrs/"+m_address+"/balance");
+		WWW www = new WWW("https://api.blockcypher.com/v1/btc/main/addrs/"+m_address.ToString()+"/balance");
 		// Documentation @ https://www.blockcypher.com/dev/bitcoin/#address-balance-endpoint
 		
 		yield return www;
@@ -413,9 +334,9 @@ public class BitcoinWallet : MonoBehaviour
 		{
 			m_balanceData = new JSONObject(www.text);
 			Log("New balance data: "+m_balanceData.ToString(true));
-			BalanceAmountText.text = "Confirmed: "+m_confirmedBalance+"[sat]";
+			BalanceAmountText.text = "Confirmed: "+m_balance+"[sat]";
 			if (m_unconfirmedBalance != 0)
-				BalanceAmountText.text += "\t\tUnconfirmed: " + m_unconfirmedBalance+"[sat]";
+				BalanceAmountText.text += "\t(Waiting: " + m_unconfirmedBalance+"[sat])";
 		}
 		BalanceAnimatedLoader.SetActive(false);
 		BalanceRefreshButton.gameObject.SetActive(true);
