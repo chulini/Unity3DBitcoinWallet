@@ -179,7 +179,8 @@ public class BitcoinWallet : MonoBehaviour
 		
 		//Request all unspent transactions related to this address
 		//https://live.blockcypher.com/btc/address/<address> shows the same but nicely
-		WWW wwwTxo = new WWW("https://api.blockcypher.com/v1/btc/main/addrs/" + m_address.ToString() + "/full?includeScript=true");
+		
+		WWW wwwTxo = new WWW("https://blockchain.info/unspent?active=" + m_address.ToString() + "");
 		yield return wwwTxo;
 		
 		if (wwwTxo.error != null)
@@ -188,28 +189,38 @@ public class BitcoinWallet : MonoBehaviour
 			SetSendPanelInteractable(true);
 		}
 		else
-		{	
-			JSONObject txRelatedToAddress = new JSONObject(wwwTxo.text);
+		{
+//			{
+//				"unspent_outputs": [
+	//				{
+	//					"tx_hash": "aed0a61f789e80975425685ef65ba0a0e388db0c001dfd9e548e896fe39c1067",
+	//					"tx_hash_big_endian": "67109ce36f898e549efd1d000cdb88e3a0a05bf65e68255497809e781fa6d0ae",
+	//					"tx_output_n": 0,
+	//					"script": "76a914717ee27eca5ed0bd30fde351a19439ed96bdcb3f88ac",
+	//					"value": 2176,
+	//					"value_hex": "0880",
+	//					"confirmations": 0,
+	//					"tx_index": 461965676
+	//				}
+//				]
+//			}
+			JSONObject utxos = new JSONObject(wwwTxo.text);
 			//INPUT: money coming from an address
 			//OUTPUT: money going to an address
 			//Get all unspent outputs using my address
 			List<Coin> unspentCoins = new List<Coin>();
-			for (int i = 0; i < txRelatedToAddress["txs"].Count; i++)
+			for (int i = 0; i < utxos["unspent_outputs"].Count; i++)
 			{
-				string txHash = txRelatedToAddress["txs"][i]["hash"].str;
-				for (int j = 0; j < txRelatedToAddress["txs"][i]["outputs"].Count; j++)
-				{
-					JSONObject txo = txRelatedToAddress["txs"][i]["outputs"][j];
-					if (txo["addresses"][0].str == m_address.ToString() && txo["spent_by"] == null)
-					{
-						Log(((int) txo["value"].n) + " unspent!");
-						unspentCoins.Add(new Coin(
-							new uint256(txHash), //Hash of the transaction this output is comming from 
-							(uint) j,//Index of the transaction output
-							Money.Satoshis((int) txo["value"].n), //Amount of money this output has
-							m_address.ScriptPubKey)); //Script to solve to spend this output
-					}
-				}
+				string txHash = utxos["unspent_outputs"][i]["tx_hash_big_endian"].str;
+				uint outputIndex = (uint) utxos["unspent_outputs"][i]["tx_output_n"].n;
+				int valueUnspent = (int) utxos["unspent_outputs"][i]["value"].n;
+				Log(valueUnspent + " unspent!");
+				
+				unspentCoins.Add(new Coin(
+					new uint256(txHash), //Hash of the transaction this output is comming from 
+					outputIndex, //Index of the transaction output within the transaction
+					Money.Satoshis(valueUnspent), //Amount of money this output has
+					m_address.ScriptPubKey)); //Script to solve to spend this output
 			}
 			
 			//+info about how to use TransactionBuilder can be found here
