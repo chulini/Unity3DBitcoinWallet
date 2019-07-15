@@ -19,11 +19,10 @@ public class BitcoinWallet : MonoBehaviour
 	[SerializeField] Text AddressText;
 	[SerializeField] RawImage AddressQRRawImage;
 	[SerializeField] Button AddressQRButton;
-	[SerializeField] Text CopyAddressButtonText;
 	[SerializeField] GameObject QRAnimatedLoader;
 	
 	[Header("Wallet Send")]
-	[SerializeField] Button SendButton;//TODO send money
+	[SerializeField] Button SendButton;
 	[SerializeField] InputField RecipientAddressInputField;
 	[SerializeField] InputField SendInputField;
 	[SerializeField] InputField FeeInputField;
@@ -35,6 +34,7 @@ public class BitcoinWallet : MonoBehaviour
 	[SerializeField] Button CopyMnemonicButton;
 	[SerializeField] Text CopyMnemonicButtonText;
 	[SerializeField] InputField PrivateKeyInputField;
+	[SerializeField] Button RevealPrivateButton;
 
 	[Header("Logs")]
 	[SerializeField] Text LogsText;
@@ -122,6 +122,7 @@ public class BitcoinWallet : MonoBehaviour
 		ImportButton.onClick.AddListener(() =>
 		{
 			GenerateWallet(MnemonicInputField.text);
+			RevealPrivateButton.gameObject.SetActive(true);
 		});
 		BalanceRefreshButton.onClick.AddListener(() =>
 		{
@@ -131,6 +132,7 @@ public class BitcoinWallet : MonoBehaviour
 		{
 			CopyTextToClipboard(MnemonicInputField.text);
 			StartCoroutine(Animatetext("Copied :D", CopyMnemonicButtonText));
+			RevealPrivateButton.gameObject.SetActive(true);
 		} );
 		AddressQRButton.onClick.AddListener(() =>
 		{
@@ -157,6 +159,10 @@ public class BitcoinWallet : MonoBehaviour
 		{
 			UpdateTotalToSpend();
 		});
+		RevealPrivateButton.onClick.AddListener(() =>
+		{
+			RevealPrivateButton.gameObject.SetActive(false);
+		});
 	}
 
 	void UpdateTotalToSpend()
@@ -176,6 +182,9 @@ public class BitcoinWallet : MonoBehaviour
 	{
 		Log("Requesting transaction outputs for address "+m_address.ToString());
 		SetSendPanelInteractable(false);
+		
+		//INPUT: money coming from an address
+		//OUTPUT: money going to an address
 		
 		//Request all unspent transactions related to this address
 		//https://live.blockcypher.com/btc/address/<address> shows the same but nicely
@@ -205,8 +214,6 @@ public class BitcoinWallet : MonoBehaviour
 //				]
 //			}
 			JSONObject utxos = new JSONObject(wwwTxo.text);
-			//INPUT: money coming from an address
-			//OUTPUT: money going to an address
 			//Get all unspent outputs using my address
 			List<Coin> unspentCoins = new List<Coin>();
 			for (int i = 0; i < utxos["unspent_outputs"].Count; i++)
@@ -274,8 +281,7 @@ public class BitcoinWallet : MonoBehaviour
 	void Start()
 	{
 		//mnemonic to remind:
-		//position rough review helmet urban great custom carpet custom honey mango talent (have tx history)
-		//vehicle shy appear ranch this gap across loud rebel thing collect spoil
+		//inch motion chef age special plastic right food vibrant ask police push
 		GenerateWallet();
 		UpdateTotalToSpend();
 	}
@@ -347,7 +353,7 @@ public class BitcoinWallet : MonoBehaviour
 			Log("New balance data: "+m_balanceData.ToString(true));
 			BalanceAmountText.text = "Confirmed: "+m_balance+"[sat]";
 			if (m_unconfirmedBalance != 0)
-				BalanceAmountText.text += "\t(Waiting: " + m_unconfirmedBalance+"[sat])";
+				BalanceAmountText.text += "\t(Waiting: " + m_unconfirmedBalance+"[sat])\tFinal:"+(m_balance+m_unconfirmedBalance)+"[sat]";
 		}
 		BalanceAnimatedLoader.SetActive(false);
 		BalanceRefreshButton.gameObject.SetActive(true);
